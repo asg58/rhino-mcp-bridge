@@ -1,0 +1,8 @@
+.venv/
+.tools/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env.ps1
+mcp-config.json
+*.log
