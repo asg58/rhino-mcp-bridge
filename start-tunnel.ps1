@@ -5,7 +5,8 @@ param(
 $ErrorActionPreference = "Stop"
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Tunnel = Join-Path $ProjectDir ".tools\tunnel-client.exe"
-$PyExe = Join-Path $ProjectDir ".venv\Scripts\python.exe"
+$PyDir = Join-Path $ProjectDir ".venv\Scripts"
+$PyExe = Join-Path $PyDir "python.exe"
 $EnvFile = Join-Path $ProjectDir ".env.ps1"
 
 if (-not (Test-Path $Tunnel)) {
@@ -23,11 +24,18 @@ if (-not $env:CONTROL_PLANE_API_KEY) {
 
 . $EnvFile
 
-$McpCommand = "$PyExe -m rhino_bridge.server"
+# Put the venv first on PATH. This avoids Windows backslash escaping inside
+# tunnel-client's stdio command parser.
+$env:PATH = "$PyDir;$env:PATH"
+Set-Location $ProjectDir
+
+$ResolvedPython = (Get-Command python.exe -ErrorAction Stop).Source
+$McpCommand = "python.exe -m rhino_bridge.server"
 
 Write-Host ""
 Write-Host "Checking tunnel configuration..." -ForegroundColor Cyan
 Write-Host "Tunnel: $TunnelId"
+Write-Host "Python: $ResolvedPython"
 Write-Host "MCP:    $McpCommand"
 Write-Host ""
 
