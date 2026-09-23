@@ -1,31 +1,59 @@
 param(
-    [Parameter(Mandatory=$true)][string]$TunnelId,
-    [string]$Profile = "rhino-bridge"
+    [Parameter(Mandatory=$true)][string]$TunnelId
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Tunnel = Join-Path $ProjectDir ".tools\tunnel-client.exe"
 $PyExe = Join-Path $ProjectDir ".venv\Scripts\python.exe"
+$EnvFile = Join-Path $ProjectDir ".env.ps1"
 
-if (-not (Test-Path $Tunnel)) { throw "Run .\download-tunnel-client.ps1 first" }
-if (-not (Test-Path $PyExe)) { throw "Run .\setup.ps1 first" }
-if (-not $env:CONTROL_PLANE_API_KEY) { throw "Set CONTROL_PLANE_API_KEY in this PowerShell session first. Do not commit it." }
-if (-not (Test-Path "$ProjectDir\.env.ps1")) { throw "Missing .env.ps1; run setup.ps1 first" }
-
-. "$ProjectDir\.env.ps1"
-
-$McpCommand = ('"{0}" -m rhino_bridge.server' -f $PyExe)
-
-Write-Host "Preparing OpenAI tunnel profile '$Profile'..." -ForegroundColor Cyan
-& $Tunnel init --sample sample_mcp_stdio_local --profile $Profile --tunnel-id $TunnelId --mcp-command $McpCommand
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Profile init returned non-zero; it may already exist. Continuing with doctor." -ForegroundColor Yellow
+if (-not (Test-Path $Tunnel)) {
+    throw "tunnel-client.exe ontbreekt. Run eerst .\download-tunnel-client.ps1"
+}
+if (-not (Test-Path $PyExe)) {
+    throw "Python venv ontbreekt. Run eerst .\setup.ps1"
+}
+if (-not (Test-Path $EnvFile)) {
+    throw ".env.ps1 ontbreekt. Run eerst .\setup.ps1"
+}
+if (-not $env:CONTROL_PLANE_API_KEY) {
+    throw "CONTROL_PLANE_API_KEY is niet gezet in deze PowerShell-sessie."
 }
 
-& $Tunnel doctor --profile $Profile --explain
-if ($LASTEXITCODE -ne 0) { throw "tunnel-client doctor failed" }
+. $EnvFile
 
-Write-Host "Starting tunnel. Keep this PowerShell window open." -ForegroundColor Green
-& $Tunnel run --profile $Profile
+$McpCommand = "$PyExe -m rhino_bridge.server"
+
+Write-Host ""
+Write-Host "Checking tunnel configuration..." -ForegroundColor Cyan
+Write-Host "Tunnel: $TunnelId"
+Write-Host "MCP:    $McpCommand"
+Write-Host ""
+
+$doctorArgs = @(
+    "doctor",
+    "--control-plane.tunnel-id", $TunnelId,
+    "--mcp.command", $McpCommand,
+    "--explain"
+)
+
+& $Tunnel @doctorArgs
+
+if ($LASTEXITCODE -ne 0) {
+    throw "tunnel-client doctor failed"
+}
+
+Write-Host ""
+Write-Host "Doctor passed. Starting tunnel..." -ForegroundColor Green
+Write-Host "Laat dit PowerShell-venster open zolang ChatGPT de bridge gebruikt."
+Write-Host ""
+
+$runArgs = @(
+    "run",
+    "--control-plane.tunnel-id", $TunnelId,
+    "--mcp.command", $McpCommand,
+    "--health.listen-addr", "127.0.0.1:8080"
+)
+
+& $Tunnel @runArgs
