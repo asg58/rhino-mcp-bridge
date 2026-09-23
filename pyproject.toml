@@ -1,0 +1,17 @@
+[project]
+name = "rhino-mcp-bridge"
+version = "0.1.0"
+description = "Combined read-only Rhino and editable VS Code workspace MCP bridge"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp[cli]>=2,<3",
+  "pefile>=2024.8.26",
+  "dnfile>=0.17",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
